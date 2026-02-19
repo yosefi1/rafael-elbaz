@@ -50,17 +50,21 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
       if (!row || row.length === 0) continue;
       
       const firstCell = String(row[0] || '').trim();
+      const rowText = row.map(c => String(c || '')).join(' ').trim();
       
       // Check for section headers (חלופה)
-      if (firstCell.includes('חלופה')) {
+      if (firstCell.includes('חלופה') || rowText.includes('חלופה')) {
         if (currentSection && currentSection.items.length > 0) {
           currentSection.subtotal = currentSection.items.reduce((sum, item) => sum + item.total, 0);
           sections.push(currentSection);
         }
         
+        // Get full title from all cells in the row
+        const fullTitle = row.map(c => String(c || '')).join(' ').trim();
+        
         currentSection = {
           id: generateId(),
-          title: firstCell,
+          title: fullTitle || firstCell,
           description: '',
           items: [],
           subtotal: 0
@@ -69,9 +73,18 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
       }
       
       // Skip header rows and summary rows
-      if (firstCell === 'תיאור' || firstCell === '#' || 
+      if (firstCell === 'תיאור' || firstCell === '#' || firstCell === 'כמות' || firstCell === 'מחיר' ||
           firstCell.includes('סה"כ') || firstCell.includes('סה״כ') ||
-          firstCell.includes('מע"מ') || firstCell.includes('מע״מ')) {
+          firstCell.includes('מע"מ') || firstCell.includes('מע״מ') ||
+          rowText.includes('סה"כ') || rowText.includes('סה״כ') ||
+          rowText.includes('מע"מ') || rowText.includes('מע״מ') ||
+          rowText.includes('כולל מע') ||
+          /^\d+%$/.test(firstCell)) {
+        continue;
+      }
+      
+      // Skip rows that are ONLY a number (like totals)
+      if (row.length === 1 && !isNaN(Number(String(row[0]).replace(/[,₪]/g, '')))) {
         continue;
       }
       
@@ -108,48 +121,49 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
   };
 
   const parseItemRow = (row: (string | number)[], index: number): QuoteItem | null => {
-    // Try different column layouts
-    // Layout 1: [index, description, quantity, price, total]
-    // Layout 2: [description, quantity, price, total]
-    // Layout 3: [description, quantity, price] (calculate total)
-    
     let description = '';
     let quantity = 1;
     let unitPrice = 0;
     let total = 0;
     
-    // Filter out empty cells and get meaningful values
     const cells = row.filter(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
     
-    if (cells.length < 2) return null;
+    if (cells.length === 0) return null;
     
-    // Find numeric values (likely quantity, price, total)
+    // Check if this row looks like a summary row
+    const rowText = cells.map(c => String(c)).join(' ');
+    if (rowText.includes('סה"כ') || rowText.includes('סה״כ') || 
+        rowText.includes('מע"מ') || rowText.includes('מע״מ') ||
+        rowText.includes('כולל מע')) {
+      return null;
+    }
+    
     const numericValues: number[] = [];
     const textValues: string[] = [];
     
     for (const cell of cells) {
-      const numVal = typeof cell === 'number' ? cell : parseFloat(String(cell).replace(/[,₪]/g, ''));
+      const cellStr = String(cell).trim();
+      const numVal = typeof cell === 'number' ? cell : parseFloat(cellStr.replace(/[,₪]/g, ''));
       if (!isNaN(numVal) && numVal > 0) {
         numericValues.push(numVal);
-      } else if (typeof cell === 'string' && cell.trim().length > 1) {
-        textValues.push(cell.trim());
+      }
+      // Collect text values (even single characters, but not just numbers)
+      if (cellStr.length > 0 && isNaN(Number(cellStr.replace(/[,₪]/g, '')))) {
+        textValues.push(cellStr);
       }
     }
     
-    // Use first text as description
+    // Build description from all text values
     if (textValues.length > 0) {
-      description = textValues[0];
+      description = textValues.join(' ').trim();
     }
     
-    // Parse numbers based on count
+    // Parse numbers if we have them
     if (numericValues.length >= 3) {
-      // Assume: quantity, unitPrice, total
       quantity = numericValues[0];
       unitPrice = numericValues[1];
       total = numericValues[2];
     } else if (numericValues.length === 2) {
-      // Could be: quantity+price, or price+total
-      // If second number is much larger, it's likely total
       if (numericValues[1] > numericValues[0] * 10) {
         quantity = 1;
         unitPrice = numericValues[1];
@@ -164,15 +178,18 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
       unitPrice = total;
       quantity = 1;
     }
+    // If no numbers, that's ok - item will have quantity=1, price=0
     
-    if (!description || total === 0) return null;
+    if (!description) return null;
     
     return {
       id: generateId(),
       description,
       quantity,
       unitPrice,
-      total
+      total,
+      isComplex: false,
+      subItems: []
     };
   };
 

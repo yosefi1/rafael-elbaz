@@ -1,6 +1,7 @@
 'use client';
 
-import { QuoteData, QuoteSection, QuoteItem } from '@/types/quote';
+import { useState } from 'react';
+import { QuoteData, QuoteSection, QuoteItem, SubItem } from '@/types/quote';
 
 interface QuoteFormProps {
   data: QuoteData;
@@ -8,12 +9,21 @@ interface QuoteFormProps {
 }
 
 export default function QuoteForm({ data, onChange }: QuoteFormProps) {
+  const [draggedItem, setDraggedItem] = useState<{ sectionId: string; itemId: string } | null>(null);
+  
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const updateCustomer = (field: string, value: string) => {
     onChange({
       ...data,
       customer: { ...data.customer, [field]: value }
+    });
+  };
+
+  const updateCompany = (field: string, value: string) => {
+    onChange({
+      ...data,
+      company: { ...data.company, [field]: value }
     });
   };
 
@@ -57,7 +67,9 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
       description: '',
       quantity: 1,
       unitPrice: 0,
-      total: 0
+      total: 0,
+      isComplex: false,
+      subItems: []
     };
     onChange({
       ...data,
@@ -69,7 +81,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     });
   };
 
-  const updateItem = (sectionId: string, itemId: string, field: string, value: string | number) => {
+  const updateItem = (sectionId: string, itemId: string, field: string, value: string | number | boolean) => {
     onChange({
       ...data,
       sections: data.sections.map(s => {
@@ -100,12 +112,185 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     });
   };
 
+  const toggleComplex = (sectionId: string, itemId: string) => {
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          items: s.items.map(item => {
+            if (item.id !== itemId) return item;
+            return { ...item, isComplex: !item.isComplex };
+          })
+        };
+      })
+    });
+  };
+
+  const addSubItem = (sectionId: string, itemId: string) => {
+    const newSubItem: SubItem = {
+      id: generateId(),
+      description: ''
+    };
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          items: s.items.map(item => {
+            if (item.id !== itemId) return item;
+            return { ...item, isComplex: true, subItems: [...item.subItems, newSubItem] };
+          })
+        };
+      })
+    });
+  };
+
+  const updateSubItem = (sectionId: string, itemId: string, subItemId: string, value: string) => {
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          items: s.items.map(item => {
+            if (item.id !== itemId) return item;
+            return {
+              ...item,
+              subItems: item.subItems.map(sub =>
+                sub.id === subItemId ? { ...sub, description: value } : sub
+              )
+            };
+          })
+        };
+      })
+    });
+  };
+
+  const removeSubItem = (sectionId: string, itemId: string, subItemId: string) => {
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          items: s.items.map(item => {
+            if (item.id !== itemId) return item;
+            const newSubItems = item.subItems.filter(sub => sub.id !== subItemId);
+            return {
+              ...item,
+              subItems: newSubItems,
+              isComplex: newSubItems.length > 0
+            };
+          })
+        };
+      })
+    });
+  };
+
+  // Drag and drop to convert item to sub-item
+  const handleDragStart = (sectionId: string, itemId: string) => {
+    setDraggedItem({ sectionId, itemId });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDropOnItem = (targetSectionId: string, targetItemId: string) => {
+    if (!draggedItem) return;
+    if (draggedItem.sectionId !== targetSectionId) return;
+    if (draggedItem.itemId === targetItemId) return;
+
+    const section = data.sections.find(s => s.id === targetSectionId);
+    if (!section) return;
+
+    const draggedItemData = section.items.find(i => i.id === draggedItem.itemId);
+    if (!draggedItemData) return;
+
+    // Convert dragged item to sub-item of target
+    const newSubItem: SubItem = {
+      id: generateId(),
+      description: draggedItemData.description
+    };
+
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== targetSectionId) return s;
+        return {
+          ...s,
+          items: s.items
+            .filter(item => item.id !== draggedItem.itemId) // Remove dragged item
+            .map(item => {
+              if (item.id !== targetItemId) return item;
+              return {
+                ...item,
+                isComplex: true,
+                subItems: [...item.subItems, newSubItem]
+              };
+            })
+        };
+      })
+    });
+
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
+
   return (
     <div className="space-y-8">
-      {/* Quote Info */}
+      {/* Header Settings */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">1</span>
+          הגדרות כותרת
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">שם החברה (כותרת)</label>
+            <input
+              type="text"
+              value={data.headerTitle}
+              onChange={(e) => updateQuoteInfo('headerTitle', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="לונה שקד בע״מ"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">טלפון חברה</label>
+            <input
+              type="tel"
+              value={data.company.phone}
+              onChange={(e) => updateCompany('phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="050-0000000"
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">אימייל חברה</label>
+            <input
+              type="email"
+              value={data.company.email}
+              onChange={(e) => updateCompany('email', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="info@company.com"
+              dir="ltr"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Quote Info */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">2</span>
           פרטי הצעה
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -143,10 +328,10 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
       {/* Customer Info */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">2</span>
+          <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">3</span>
           פרטי לקוח
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">שם הלקוח</label>
             <input
@@ -180,14 +365,46 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">כתובת</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">עיר</label>
             <input
               type="text"
-              value={data.customer.address}
-              onChange={(e) => updateCustomer('address', e.target.value)}
+              value={data.customer.city}
+              onChange={(e) => updateCustomer('city', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="כתובת מלאה"
+              placeholder="תל אביב"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">רחוב</label>
+            <input
+              type="text"
+              value={data.customer.street}
+              onChange={(e) => updateCustomer('street', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="הרצל"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">בניין</label>
+              <input
+                type="text"
+                value={data.customer.building}
+                onChange={(e) => updateCustomer('building', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="12"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">דירה</label>
+              <input
+                type="text"
+                value={data.customer.apartment}
+                onChange={(e) => updateCustomer('apartment', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="5"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -196,7 +413,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">3</span>
+            <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">4</span>
             פריטי העבודה
           </h2>
           <button
@@ -210,7 +427,11 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
           </button>
         </div>
 
-        {data.sections.map((section, sectionIndex) => (
+        <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
+          <strong>טיפ:</strong> גרור סעיף ושחרר על סעיף אחר כדי להפוך אותו לתת-סעיף
+        </div>
+
+        {data.sections.map((section) => (
           <div key={section.id} className="mb-6 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <div className="flex items-start gap-4 mb-4">
               <div className="flex-1">
@@ -244,71 +465,127 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
               </button>
             </div>
 
-            {/* Items Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="text-right px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200">#</th>
-                    <th className="text-right px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200">תיאור</th>
-                    <th className="text-right px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 w-24">כמות</th>
-                    <th className="text-right px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 w-32">מחיר יחידה</th>
-                    <th className="text-right px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 w-32">סה״כ</th>
-                    <th className="px-3 py-2 border border-gray-200 w-12"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {section.items.map((item, itemIndex) => (
-                    <tr key={item.id} className="bg-white">
-                      <td className="px-3 py-2 border border-gray-200 text-center text-gray-600">
+            {/* Items Header */}
+            {section.items.length > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-600 mb-2">
+                <div className="w-8 text-center">#</div>
+                <div className="flex-1">תיאור</div>
+                <div className="w-20 text-center">כמות</div>
+                <div className="w-4"></div>
+                <div className="w-28 text-center">מחיר</div>
+                <div className="w-4"></div>
+                <div className="w-28 text-center">סה״כ</div>
+                <div className="w-9"></div>
+              </div>
+            )}
+
+            {/* Items */}
+            <div className="space-y-3">
+              {section.items.map((item, itemIndex) => (
+                <div 
+                  key={item.id} 
+                  className={`bg-white border rounded-lg p-4 transition-all ${
+                    draggedItem?.itemId === item.id 
+                      ? 'border-purple-400 opacity-50' 
+                      : 'border-gray-200'
+                  }`}
+                  draggable
+                  onDragStart={() => handleDragStart(section.id, item.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDropOnItem(section.id, item.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Number + Add Sub-item button */}
+                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                      <span 
+                        className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-medium text-sm cursor-grab active:cursor-grabbing"
+                        title="גרור לסעיף אחר להפיכה לתת-סעיף"
+                      >
                         {itemIndex + 1}
-                      </td>
-                      <td className="px-3 py-2 border border-gray-200">
+                      </span>
+                      <button
+                        onClick={() => addSubItem(section.id, item.id)}
+                        className="w-6 h-6 bg-purple-100 hover:bg-purple-200 rounded flex items-center justify-center text-purple-600 transition-colors"
+                        title="הוסף תת-סעיף"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-3">
                         <input
                           type="text"
                           value={item.description}
                           onChange={(e) => updateItem(section.id, item.id, 'description', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="תיאור הפריט"
                         />
-                      </td>
-                      <td className="px-3 py-2 border border-gray-200">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(section.id, item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                          min="0"
-                          step="1"
-                        />
-                      </td>
-                      <td className="px-3 py-2 border border-gray-200">
-                        <input
-                          type="number"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(section.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                          min="0"
-                          step="100"
-                        />
-                      </td>
-                      <td className="px-3 py-2 border border-gray-200 text-center font-medium">
-                        ₪{item.total.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border border-gray-200 text-center">
-                        <button
-                          onClick={() => removeItem(section.id, item.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={item.quantity || ''}
+                            onChange={(e) => updateItem(section.id, item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="w-20 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                            placeholder="כמות"
+                            min="0"
+                          />
+                          <span className="text-gray-400">×</span>
+                          <input
+                            type="number"
+                            value={item.unitPrice || ''}
+                            onChange={(e) => updateItem(section.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                            placeholder="מחיר"
+                            min="0"
+                          />
+                          <span className="text-gray-400">=</span>
+                          <span className="w-28 px-3 py-2 bg-gray-50 rounded-lg text-center font-medium">
+                            ₪{(item.quantity * item.unitPrice).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sub-items */}
+                      {item.subItems.length > 0 && (
+                        <div className="mr-4 space-y-2 border-r-2 border-purple-200 pr-4">
+                          {item.subItems.map((subItem, subIndex) => (
+                            <div key={subItem.id} className="flex items-center gap-2">
+                              <span className="text-purple-500 text-sm font-medium">{itemIndex + 1}.{subIndex + 1}</span>
+                              <input
+                                type="text"
+                                value={subItem.description}
+                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, e.target.value)}
+                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                placeholder="תיאור תת-סעיף"
+                              />
+                              <button
+                                onClick={() => removeSubItem(section.id, item.id, subItem.id)}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeItem(section.id, item.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <button
@@ -320,6 +597,24 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
               </svg>
               הוסף פריט
             </button>
+
+            {/* Section Totals - Left Side */}
+            {section.items.length > 0 && (() => {
+              const subtotal = section.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+              const vat = subtotal * (data.vatRate / 100);
+              const total = subtotal + vat;
+              return (
+                <div className="mt-4 pt-4 border-t border-gray-200 text-sm flex justify-end">
+                  <div className="flex gap-6 items-center">
+                    <span className="text-gray-500">סה״כ: <strong className="text-gray-800">₪{subtotal.toLocaleString()}</strong></span>
+                    <span className="text-gray-500">מע״מ {data.vatRate}%: <strong className="text-gray-800">₪{Math.round(vat).toLocaleString()}</strong></span>
+                    <span className="py-2 px-4 bg-blue-600 text-white rounded-lg font-bold">
+                      סה״כ כולל מע״מ: ₪{Math.round(total).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ))}
 
@@ -337,7 +632,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
       {/* Notes & Terms */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">4</span>
+          <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center text-sm">5</span>
           הערות ותנאים
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

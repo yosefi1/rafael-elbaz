@@ -13,15 +13,18 @@ const initialData: QuoteData = {
   quoteNumber: 'Q-001',
   date: new Date().toISOString().split('T')[0],
   validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  headerTitle: 'לונה שקד בע״מ',
   customer: {
     name: '',
     phone: '',
     email: '',
-    address: ''
+    city: '',
+    street: '',
+    building: '',
+    apartment: ''
   },
   company: {
     name: 'לונה שקד בע״מ',
-    address: 'טללים 8/2, צור הדסה',
     phone: '',
     email: ''
   },
@@ -135,7 +138,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">מחולל הצעות מחיר</h1>
-                <p className="text-sm text-gray-500">{data.company.name}</p>
+                <p className="text-sm text-gray-500">{data.headerTitle}</p>
               </div>
             </div>
             
