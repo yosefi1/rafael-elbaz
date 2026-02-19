@@ -194,7 +194,7 @@ export default function QuotePage() {
 
       {/* Main Content */}
       <main className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className={`grid gap-8 ${showPreview ? 'lg:grid-cols-2' : 'lg:grid-cols-1 max-w-4xl'}`}>
+        <div className={`grid gap-8 ${showPreview ? 'lg:grid-cols-2' : 'lg:grid-cols-1 max-w-5xl mx-auto'}`}>
           {/* Left Side - Form */}
           <div className="space-y-6">
             <FileUpload onDataParsed={handleFileParsed} />

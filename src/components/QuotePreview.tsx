@@ -118,9 +118,13 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                         </tr>
                         {item.subItems.map((sub, subIdx) => (
                           <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                            <td colSpan={4} className="px-3 py-1 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted, paddingRight: '2rem' }}>
+                            <td className="px-3 py-1 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted }}></td>
+                            <td className="px-3 py-1 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted, paddingRight: '1rem' }}>
                               • {sub.description}
                             </td>
+                            <td className="px-3 py-1 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                            <td className="px-3 py-1 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                            <td className="px-3 py-1 border-b text-sm text-left" style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
                           </tr>
                         ))}
                       </>
@@ -214,8 +218,11 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                       <div className="text-left w-32 font-medium">₪{(item.quantity * item.unitPrice).toLocaleString()}</div>
                     </div>
                     {item.subItems.map((sub) => (
-                      <div key={sub.id} className="py-2 pr-8 text-sm border-b" style={{ borderColor: colors.border, color: colors.muted }}>
-                        • {sub.description}
+                      <div key={sub.id} className="flex items-center py-2 pr-8 text-sm border-b" style={{ borderColor: colors.border, color: colors.muted }}>
+                        <div className="flex-1">• {sub.description}</div>
+                        <div className="w-16 text-center">{sub.quantity}</div>
+                        <div className="w-24 text-center">₪{sub.unitPrice.toLocaleString()}</div>
+                        <div className="w-32 text-left">₪{(sub.quantity * sub.unitPrice).toLocaleString()}</div>
                       </div>
                     ))}
                   </div>
@@ -302,8 +309,11 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                           </tr>
                           {item.subItems.map((sub) => (
                             <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                              <td></td>
-                              <td colSpan={4} className="px-4 py-1 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                              <td className="px-4 py-1 border-b text-sm" style={{ borderColor: colors.border }}></td>
+                              <td className="px-4 py-1 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                              <td className="px-4 py-1 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                              <td className="px-4 py-1 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                              <td className="px-4 py-1 border-b text-sm text-left" style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
                             </tr>
                           ))}
                         </>
@@ -453,8 +463,11 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                       </tr>
                       {item.subItems.map((sub) => (
                         <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                          <td></td>
-                          <td colSpan={4} className="px-4 py-2 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                          <td className="px-4 py-2 border-b text-sm" style={{ borderColor: colors.border }}></td>
+                          <td className="px-4 py-2 border-b text-sm" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                          <td className="px-4 py-2 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                          <td className="px-4 py-2 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                          <td className="px-4 py-2 border-b text-sm text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
                         </tr>
                       ))}
                     </>

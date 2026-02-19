@@ -131,7 +131,10 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
   const addSubItem = (sectionId: string, itemId: string) => {
     const newSubItem: SubItem = {
       id: generateId(),
-      description: ''
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      total: 0
     };
     onChange({
       ...data,
@@ -148,7 +151,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     });
   };
 
-  const updateSubItem = (sectionId: string, itemId: string, subItemId: string, value: string) => {
+  const updateSubItem = (sectionId: string, itemId: string, subItemId: string, field: string, value: string | number) => {
     onChange({
       ...data,
       sections: data.sections.map(s => {
@@ -159,12 +162,55 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
             if (item.id !== itemId) return item;
             return {
               ...item,
-              subItems: item.subItems.map(sub =>
-                sub.id === subItemId ? { ...sub, description: value } : sub
-              )
+              subItems: item.subItems.map(sub => {
+                if (sub.id !== subItemId) return sub;
+                const updated = { ...sub, [field]: value };
+                if (field === 'quantity' || field === 'unitPrice') {
+                  updated.total = Number(updated.quantity) * Number(updated.unitPrice);
+                }
+                return updated;
+              })
             };
           })
         };
+      })
+    });
+  };
+
+  const promoteSubItemToItem = (sectionId: string, itemId: string, subItemId: string) => {
+    const section = data.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    const parentItem = section.items.find(i => i.id === itemId);
+    if (!parentItem) return;
+    const subItem = parentItem.subItems.find(s => s.id === subItemId);
+    if (!subItem) return;
+
+    const newItem: QuoteItem = {
+      id: generateId(),
+      description: subItem.description,
+      quantity: subItem.quantity,
+      unitPrice: subItem.unitPrice,
+      total: subItem.total,
+      isComplex: false,
+      subItems: []
+    };
+
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        const updatedItems = s.items.map(item => {
+          if (item.id !== itemId) return item;
+          const newSubItems = item.subItems.filter(sub => sub.id !== subItemId);
+          return {
+            ...item,
+            subItems: newSubItems,
+            isComplex: newSubItems.length > 0
+          };
+        });
+        const parentIndex = updatedItems.findIndex(i => i.id === itemId);
+        updatedItems.splice(parentIndex + 1, 0, newItem);
+        return { ...s, items: updatedItems };
       })
     });
   };
@@ -213,7 +259,10 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     // Convert dragged item to sub-item of target
     const newSubItem: SubItem = {
       id: generateId(),
-      description: draggedItemData.description
+      description: draggedItemData.description,
+      quantity: draggedItemData.quantity,
+      unitPrice: draggedItemData.unitPrice,
+      total: draggedItemData.total
     };
 
     onChange({
@@ -428,7 +477,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
         </div>
 
         <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-          <strong>טיפ:</strong> גרור סעיף ושחרר על סעיף אחר כדי להפוך אותו לתת-סעיף
+          <strong>טיפ:</strong> גרור סעיף ושחרר על סעיף אחר כדי להפוך אותו לתת-סעיף. לחץ על ↑ כדי להחזיר תת-סעיף לסעיף עצמאי.
         </div>
 
         {data.sections.map((section) => (
@@ -553,15 +602,45 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                       {item.subItems.length > 0 && (
                         <div className="mr-4 space-y-2 border-r-2 border-purple-200 pr-4">
                           {item.subItems.map((subItem, subIndex) => (
-                            <div key={subItem.id} className="flex items-center gap-2">
-                              <span className="text-purple-500 text-sm font-medium">{itemIndex + 1}.{subIndex + 1}</span>
+                            <div key={subItem.id} className="flex items-center gap-2 bg-purple-50 p-2 rounded-lg">
+                              <span className="text-purple-500 text-sm font-medium w-8">{itemIndex + 1}.{subIndex + 1}</span>
                               <input
                                 type="text"
                                 value={subItem.description}
-                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, e.target.value)}
-                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, 'description', e.target.value)}
+                                className="flex-1 px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                                 placeholder="תיאור תת-סעיף"
                               />
+                              <input
+                                type="number"
+                                value={subItem.quantity || ''}
+                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="w-16 px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-purple-500 text-sm text-center"
+                                placeholder="כמות"
+                                min="0"
+                              />
+                              <span className="text-gray-400 text-sm">×</span>
+                              <input
+                                type="number"
+                                value={subItem.unitPrice || ''}
+                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                className="w-20 px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-purple-500 text-sm text-center"
+                                placeholder="מחיר"
+                                min="0"
+                              />
+                              <span className="text-gray-400 text-sm">=</span>
+                              <span className="w-20 text-sm font-medium text-purple-700">
+                                ₪{(subItem.quantity * subItem.unitPrice).toLocaleString()}
+                              </span>
+                              <button
+                                onClick={() => promoteSubItemToItem(section.id, item.id, subItem.id)}
+                                className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                                title="הפוך לסעיף עצמאי"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                </svg>
+                              </button>
                               <button
                                 onClick={() => removeSubItem(section.id, item.id, subItem.id)}
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"

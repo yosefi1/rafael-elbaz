@@ -1,6 +1,9 @@
 export interface SubItem {
   id: string;
   description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
 
 export interface QuoteItem {
