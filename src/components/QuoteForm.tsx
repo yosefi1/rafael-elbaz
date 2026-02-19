@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QuoteData, QuoteSection, QuoteItem, SubItem } from '@/types/quote';
+import { QuoteData, QuoteSection, QuoteItem, SubItem, DisplaySettings, defaultDisplaySettings, SectionDisplayOptions, defaultSectionDisplayOptions } from '@/types/quote';
 
 interface QuoteFormProps {
   data: QuoteData;
@@ -45,11 +45,28 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     });
   };
 
-  const updateSection = (sectionId: string, field: string, value: string) => {
+  const updateSection = (sectionId: string, field: string, value: string | boolean) => {
     onChange({
       ...data,
       sections: data.sections.map(s =>
         s.id === sectionId ? { ...s, [field]: value } : s
+      )
+    });
+  };
+
+  const updateSectionDisplayOptions = (sectionId: string, field: keyof SectionDisplayOptions, value: boolean | number) => {
+    onChange({
+      ...data,
+      sections: data.sections.map(s =>
+        s.id === sectionId 
+          ? { 
+              ...s, 
+              displayOptions: { 
+                ...(s.displayOptions || defaultSectionDisplayOptions), 
+                [field]: value 
+              } 
+            } 
+          : s
       )
     });
   };
@@ -236,7 +253,7 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
     });
   };
 
-  // Drag and drop to convert item to sub-item
+  // Drag and drop to convert item to sub-item OR copy to another section
   const handleDragStart = (sectionId: string, itemId: string) => {
     setDraggedItem({ sectionId, itemId });
   };
@@ -281,6 +298,45 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                 subItems: [...item.subItems, newSubItem]
               };
             })
+        };
+      })
+    });
+
+    setDraggedItem(null);
+  };
+
+  // Drop on section to COPY item to that section
+  const handleDropOnSection = (targetSectionId: string) => {
+    if (!draggedItem) return;
+    if (draggedItem.sectionId === targetSectionId) return; // Same section - ignore
+
+    const sourceSection = data.sections.find(s => s.id === draggedItem.sectionId);
+    if (!sourceSection) return;
+
+    const draggedItemData = sourceSection.items.find(i => i.id === draggedItem.itemId);
+    if (!draggedItemData) return;
+
+    // Create a copy of the item (not move!)
+    const copiedItem: QuoteItem = {
+      id: generateId(),
+      description: draggedItemData.description,
+      quantity: draggedItemData.quantity,
+      unitPrice: draggedItemData.unitPrice,
+      total: draggedItemData.total,
+      isComplex: draggedItemData.isComplex,
+      subItems: draggedItemData.subItems.map(sub => ({
+        ...sub,
+        id: generateId()
+      }))
+    };
+
+    onChange({
+      ...data,
+      sections: data.sections.map(s => {
+        if (s.id !== targetSectionId) return s;
+        return {
+          ...s,
+          items: [...s.items, copiedItem]
         };
       })
     });
@@ -477,11 +533,20 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
         </div>
 
         <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-          <strong>טיפ:</strong> גרור סעיף ושחרר על סעיף אחר כדי להפוך אותו לתת-סעיף. לחץ על ↑ כדי להחזיר תת-סעיף לסעיף עצמאי.
+          <strong>טיפ:</strong> גרור סעיף על סעיף אחר באותה חלופה להפיכתו לתת-סעיף. גרור סעיף לחלופה אחרת כדי <strong>להעתיק</strong> אותו (לא מעביר!). לחץ על ↑ להחזרת תת-סעיף לסעיף עצמאי.
         </div>
 
         {data.sections.map((section) => (
-          <div key={section.id} className="mb-6 border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <div 
+            key={section.id} 
+            className={`mb-6 border-2 rounded-lg p-4 transition-colors ${
+              draggedItem && draggedItem.sectionId !== section.id
+                ? 'border-green-400 bg-green-50'
+                : 'border-gray-200 bg-gray-50'
+            }`}
+            onDragOver={handleDragOver}
+            onDrop={() => handleDropOnSection(section.id)}
+          >
             <div className="flex items-start gap-4 mb-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">כותרת חלופה</label>
@@ -677,13 +742,75 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
               הוסף פריט
             </button>
 
+            {/* Section Display Options */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <span className="text-gray-600 font-medium">הצג בסוף חלופה:</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={section.displayOptions?.showNotes ?? true}
+                    onChange={(e) => updateSectionDisplayOptions(section.id, 'showNotes', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">הערות</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={section.displayOptions?.showPaymentTerms ?? true}
+                    onChange={(e) => updateSectionDisplayOptions(section.id, 'showPaymentTerms', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">תנאי תשלום</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={section.displayOptions?.showSignatures ?? true}
+                    onChange={(e) => updateSectionDisplayOptions(section.id, 'showSignatures', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">חתימות</span>
+                </label>
+                <div className="flex items-center gap-2 border-r border-gray-300 pr-4">
+                  <span className="text-gray-600">רווח נוסף:</span>
+                  <select
+                    value={section.displayOptions?.extraSpacingMm ?? 0}
+                    onChange={(e) => updateSectionDisplayOptions(section.id, 'extraSpacingMm', parseInt(e.target.value))}
+                    className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    <option value={0}>ללא</option>
+                    <option value={20}>20 מ״מ</option>
+                    <option value={40}>40 מ״מ</option>
+                    <option value={60}>60 מ״מ</option>
+                    <option value={80}>80 מ״מ</option>
+                    <option value={100}>100 מ״מ</option>
+                    <option value={150}>150 מ״מ (חצי עמוד)</option>
+                    <option value={297}>297 מ״מ (עמוד שלם)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Section Totals - Left Side */}
             {section.items.length > 0 && (() => {
               const subtotal = section.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
               const vat = subtotal * (data.vatRate / 100);
               const total = subtotal + vat;
+              const sectionIndex = data.sections.findIndex(s => s.id === section.id);
+              const isLastSection = sectionIndex === data.sections.length - 1;
               return (
-                <div className="mt-4 pt-4 border-t border-gray-200 text-sm flex justify-end">
+                <div className="mt-4 pt-4 border-t border-gray-200 text-sm flex justify-between items-center">
+                  {!isLastSection && (
+                    <span className="flex items-center gap-2 text-blue-500 text-xs">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      מעבר עמוד אוטומטי
+                    </span>
+                  )}
+                  {isLastSection && <span></span>}
                   <div className="flex gap-6 items-center">
                     <span className="text-gray-500">סה״כ: <strong className="text-gray-800">₪{subtotal.toLocaleString()}</strong></span>
                     <span className="text-gray-500">מע״מ {data.vatRate}%: <strong className="text-gray-800">₪{Math.round(vat).toLocaleString()}</strong></span>
@@ -732,6 +859,107 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-32"
               placeholder="תנאי תשלום..."
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Display Settings */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+          <span className="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center text-sm">⚙</span>
+          הגדרות תצוגה
+        </h2>
+        <p className="text-sm text-green-600 mb-4">✓ הגדרות אלו עובדות עם כל התבניות</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">גודל גופן</label>
+            <select
+              value={data.displaySettings?.fontSize || 'medium'}
+              onChange={(e) => onChange({
+                ...data,
+                displaySettings: { ...(data.displaySettings || defaultDisplaySettings), fontSize: e.target.value as 'small' | 'medium' | 'large' }
+              })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              <option value="small">קטן</option>
+              <option value="medium">בינוני</option>
+              <option value="large">גדול</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">גודל כותרת</label>
+            <select
+              value={data.displaySettings?.headerSize || 'normal'}
+              onChange={(e) => onChange({
+                ...data,
+                displaySettings: { ...(data.displaySettings || defaultDisplaySettings), headerSize: e.target.value as 'compact' | 'normal' | 'large' }
+              })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              <option value="compact">קומפקטי</option>
+              <option value="normal">רגיל</option>
+              <option value="large">גדול</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ריווח שורות</label>
+            <select
+              value={data.displaySettings?.tableRowPadding || 'normal'}
+              onChange={(e) => onChange({
+                ...data,
+                displaySettings: { ...(data.displaySettings || defaultDisplaySettings), tableRowPadding: e.target.value as 'tight' | 'normal' | 'relaxed' }
+              })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              <option value="tight">צפוף</option>
+              <option value="normal">רגיל</option>
+              <option value="relaxed">מרווח</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 pt-6">
+            <input
+              type="checkbox"
+              id="showQuoteTitle"
+              checked={data.displaySettings?.showQuoteTitle !== false}
+              onChange={(e) => onChange({
+                ...data,
+                displaySettings: { ...(data.displaySettings || defaultDisplaySettings), showQuoteTitle: e.target.checked }
+              })}
+              className="w-4 h-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+            />
+            <label htmlFor="showQuoteTitle" className="text-sm text-gray-700">הצג "הצעת מחיר"</label>
+          </div>
+        </div>
+        
+        {/* Page End Margin - Advanced Setting */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                🟢 שוליים מסוף עמוד (אזור בטוח)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                כמה מ״מ לפני סוף העמוד להפסיק תוכן. קו ירוק יסמן את האזור הבטוח.
+              </p>
+            </div>
+            <select
+              value={data.displaySettings?.pageEndMarginMm || 0}
+              onChange={(e) => onChange({
+                ...data,
+                displaySettings: { ...(data.displaySettings || defaultDisplaySettings), pageEndMarginMm: parseInt(e.target.value) }
+              })}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+            >
+              <option value={0}>ללא (0 מ״מ)</option>
+              <option value={10}>10 מ״מ</option>
+              <option value={20}>20 מ״מ</option>
+              <option value={30}>30 מ״מ</option>
+              <option value={40}>40 מ״מ</option>
+              <option value={50}>50 מ״מ</option>
+              <option value={60}>60 מ״מ</option>
+              <option value={80}>80 מ״מ</option>
+              <option value={100}>100 מ״מ</option>
+            </select>
           </div>
         </div>
       </div>

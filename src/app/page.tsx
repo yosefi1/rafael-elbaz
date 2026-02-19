@@ -1,10 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const router = useRouter();
+
+  const handleQuoteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowPasswordPrompt(true);
+    setPassword('');
+    setPasswordError(false);
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === 'elbaz!') {
+      setShowPasswordPrompt(false);
+      router.push('/quote');
+    } else {
+      setPasswordError(true);
+    }
+  };
 
   const services = [
     {
@@ -70,12 +91,12 @@ export default function Home() {
               <a href="#services" className="text-gray-600 hover:text-amber-600 transition-colors">שירותים</a>
               <a href="#portfolio" className="text-gray-600 hover:text-amber-600 transition-colors">פרויקטים</a>
               <a href="#contact" className="text-gray-600 hover:text-amber-600 transition-colors">צור קשר</a>
-              <Link 
-                href="/quote" 
+              <button 
+                onClick={handleQuoteClick}
                 className="px-6 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
               >
                 הצעת מחיר
-              </Link>
+              </button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -101,9 +122,9 @@ export default function Home() {
                 <a href="#services" className="text-gray-600 hover:text-amber-600">שירותים</a>
                 <a href="#portfolio" className="text-gray-600 hover:text-amber-600">פרויקטים</a>
                 <a href="#contact" className="text-gray-600 hover:text-amber-600">צור קשר</a>
-                <Link href="/quote" className="px-6 py-2.5 bg-amber-600 text-white rounded-lg text-center">
+                <button onClick={handleQuoteClick} className="px-6 py-2.5 bg-amber-600 text-white rounded-lg text-center">
                   הצעת מחיר
-                </Link>
+                </button>
               </div>
             </div>
           )}
@@ -266,12 +287,12 @@ export default function Home() {
           <p className="text-xl text-amber-100 mb-10">
             קבלו הצעת מחיר מפורטת ומקצועית תוך 24 שעות
           </p>
-          <Link 
-            href="/quote"
+          <button 
+            onClick={handleQuoteClick}
             className="inline-block px-10 py-5 bg-white text-amber-600 rounded-xl text-xl font-bold hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
           >
             קבל הצעת מחיר עכשיו
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -389,6 +410,51 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Password Prompt Modal */}
+      {showPasswordPrompt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">כניסה למערכת</h3>
+            <p className="text-gray-600 mb-6">הזן סיסמא לגישה למחולל הצעות המחיר</p>
+            
+            <form onSubmit={handlePasswordSubmit}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError(false);
+                }}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  passwordError ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                } focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg`}
+                placeholder="הזן סיסמא..."
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-red-500 text-sm mt-2">סיסמא שגויה, נסה שוב</p>
+              )}
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-colors"
+                >
+                  כניסה
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordPrompt(false)}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                >
+                  ביטול
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

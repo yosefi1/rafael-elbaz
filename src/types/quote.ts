@@ -16,12 +16,27 @@ export interface QuoteItem {
   subItems: SubItem[];
 }
 
+export interface SectionDisplayOptions {
+  showNotes: boolean;
+  showPaymentTerms: boolean;
+  showSignatures: boolean;
+  extraSpacingMm: number; // Extra spacing in mm to push content to next page
+}
+
+export const defaultSectionDisplayOptions: SectionDisplayOptions = {
+  showNotes: true,
+  showPaymentTerms: true,
+  showSignatures: true,
+  extraSpacingMm: 0,
+};
+
 export interface QuoteSection {
   id: string;
   title: string;
   description: string;
   items: QuoteItem[];
   subtotal: number;
+  displayOptions?: SectionDisplayOptions;
 }
 
 export interface CustomerInfo {
@@ -40,6 +55,24 @@ export interface CompanyInfo {
   email: string;
 }
 
+export interface DisplaySettings {
+  fontSize: 'small' | 'medium' | 'large';
+  headerSize: 'compact' | 'normal' | 'large';
+  showQuoteTitle: boolean;
+  tableRowPadding: 'tight' | 'normal' | 'relaxed';
+  pageBreakBetweenSections: boolean;
+  pageEndMarginMm: number; // How many mm before page end to stop content (safe zone)
+}
+
+export const defaultDisplaySettings: DisplaySettings = {
+  fontSize: 'medium',
+  headerSize: 'normal',
+  showQuoteTitle: true,
+  tableRowPadding: 'normal',
+  pageBreakBetweenSections: true,
+  pageEndMarginMm: 0,
+};
+
 export interface QuoteData {
   quoteNumber: string;
   date: string;
@@ -54,6 +87,7 @@ export interface QuoteData {
   vatRate: number;
   vatAmount: number;
   total: number;
+  displaySettings?: DisplaySettings;
 }
 
 export interface TemplateStyle {

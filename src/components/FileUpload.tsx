@@ -17,6 +17,107 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
+  const parsePdfFile = async (file: File): Promise<Partial<QuoteData>> => {
+    // Dynamically import pdfjs-dist for browser compatibility
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Set worker source from CDN for version 3.x
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    // Collect all text items with their positions
+    interface TextItem {
+      str: string;
+      x: number;
+      y: number;
+      page: number;
+    }
+    const allItems: TextItem[] = [];
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1 });
+      const pageHeight = viewport.height;
+      
+      interface PdfTextItem {
+        str: string;
+        transform: number[];
+      }
+      const items = textContent.items.filter((item): item is PdfTextItem => 'str' in item && 'transform' in item);
+      
+      for (const item of items) {
+        if (!item.str.trim()) continue;
+        allItems.push({
+          str: item.str,
+          x: Math.round(item.transform[4]),
+          y: Math.round(pageHeight - item.transform[5] + (i - 1) * pageHeight), // Convert to top-down, account for page
+          page: i
+        });
+      }
+    }
+    
+    // Group items by Y position (with tolerance for slight variations)
+    const yTolerance = 5;
+    const lineMap = new Map<number, TextItem[]>();
+    
+    for (const item of allItems) {
+      // Find existing line within tolerance
+      let foundY: number | null = null;
+      for (const existingY of lineMap.keys()) {
+        if (Math.abs(existingY - item.y) <= yTolerance) {
+          foundY = existingY;
+          break;
+        }
+      }
+      
+      const targetY = foundY ?? item.y;
+      if (!lineMap.has(targetY)) {
+        lineMap.set(targetY, []);
+      }
+      lineMap.get(targetY)!.push(item);
+    }
+    
+    // Sort lines by Y position and convert to rows
+    const sortedYs = Array.from(lineMap.keys()).sort((a, b) => a - b);
+    const rows: (string | number)[][] = [];
+    
+    for (const y of sortedYs) {
+      const lineItems = lineMap.get(y)!;
+      // Sort by X position (right to left for Hebrew - higher X first)
+      lineItems.sort((a, b) => b.x - a.x);
+      
+      // Try to detect columns based on X gaps
+      const xGapThreshold = 30;
+      const cells: string[] = [];
+      let currentCell = '';
+      let lastX = lineItems[0]?.x ?? 0;
+      
+      for (const item of lineItems) {
+        const gap = lastX - item.x;
+        if (gap > xGapThreshold && currentCell) {
+          cells.push(currentCell.trim());
+          currentCell = item.str;
+        } else {
+          currentCell = currentCell ? currentCell + ' ' + item.str : item.str;
+        }
+        lastX = item.x;
+      }
+      if (currentCell.trim()) {
+        cells.push(currentCell.trim());
+      }
+      
+      if (cells.length > 0) {
+        rows.push(cells);
+      }
+    }
+    
+    return parseQuoteFromRows(rows);
+  };
+
   const parseExcelFile = async (file: File): Promise<Partial<QuoteData>> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -207,8 +308,15 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
         parsedData = await parseExcelFile(file);
       } else if (fileExtension === 'csv') {
         parsedData = await parseExcelFile(file);
+      } else if (fileExtension === 'pdf') {
+        try {
+          parsedData = await parsePdfFile(file);
+        } catch (pdfError) {
+          console.error('PDF parsing error:', pdfError);
+          throw new Error('שגיאה בקריאת קובץ PDF. נסה קובץ אחר או השתמש ב-Excel.');
+        }
       } else {
-        throw new Error('סוג קובץ לא נתמך. אנא העלה קובץ Excel (.xlsx, .xls) או CSV');
+        throw new Error('סוג קובץ לא נתמך. אנא העלה קובץ Excel (.xlsx, .xls), CSV או PDF');
       }
       
       if (parsedData.sections && parsedData.sections.length > 0) {
@@ -280,7 +388,7 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.xls,.csv,.pdf"
           onChange={handleInputChange}
           className="hidden"
         />
@@ -296,9 +404,14 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
         ) : (
           <>
             <div className="flex justify-center gap-4 mb-4">
-              <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
+                <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center">
+                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
             </div>
@@ -306,7 +419,7 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
               גרור קובץ לכאן או לחץ לבחירה
             </p>
             <p className="text-sm text-gray-500">
-              תומך בקבצי Excel (.xlsx, .xls) ו-CSV
+              תומך בקבצי Excel (.xlsx, .xls), CSV ו-PDF
             </p>
           </>
         )}
