@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "לונה שקד בע״מ - מחולל הצעות מחיר",
-  description: "מערכת ליצירת הצעות מחיר מקצועיות",
+  title: "רפאל אלבז - קבלן שיפוצים ובנייה",
+  description: "רפאל אלבז - קבלן שיפוצים ובנייה מקצועי באזור ירושלים והסביבה. מעל 15 שנות ניסיון.",
 };
 
 export default function RootLayout({
