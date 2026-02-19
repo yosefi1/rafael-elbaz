@@ -9,14 +9,16 @@ import QuotePreview from '@/components/QuotePreview';
 import { QuoteData, defaultDisplaySettings } from '@/types/quote';
 
 const STORAGE_KEY = 'quote_draft';
-const SAVED_QUOTES_KEY = 'saved_quotes';
 
 interface SavedQuote {
-  id: string;
+  id: number;
   name: string;
   data: QuoteData;
   template: string;
-  savedAt: string;
+  created_at: string;
+  updated_at: string;
+  quote_number: string;
+  customer_name: string;
 }
 
 export default function QuotePage() {
@@ -28,6 +30,8 @@ export default function QuotePage() {
   const [showSavedQuotes, setShowSavedQuotes] = useState(false);
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>([]);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const getInitialData = (): QuoteData => {
     const today = new Date();
@@ -67,7 +71,7 @@ export default function QuotePage() {
   const [quoteData, setQuoteData] = useState<QuoteData>(getInitialData());
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load draft and saved quotes from localStorage on mount
+  // Load draft from localStorage on mount
   useEffect(() => {
     try {
       const savedDraft = localStorage.getItem(STORAGE_KEY);
@@ -76,16 +80,26 @@ export default function QuotePage() {
         setQuoteData(parsed.data);
         if (parsed.template) setSelectedTemplate(parsed.template);
       }
-      
-      const quotes = localStorage.getItem(SAVED_QUOTES_KEY);
-      if (quotes) {
-        setSavedQuotes(JSON.parse(quotes));
-      }
     } catch (e) {
       console.error('Error loading from localStorage:', e);
     }
     setIsLoaded(true);
   }, []);
+
+  // Load saved quotes from database
+  const fetchSavedQuotes = async () => {
+    setIsLoadingQuotes(true);
+    try {
+      const response = await fetch('/api/quotes');
+      if (response.ok) {
+        const quotes = await response.json();
+        setSavedQuotes(quotes);
+      }
+    } catch (e) {
+      console.error('Error loading quotes from database:', e);
+    }
+    setIsLoadingQuotes(false);
+  };
 
   // Auto-save draft to localStorage when data changes
   useEffect(() => {
@@ -112,42 +126,67 @@ export default function QuotePage() {
     }
   }, [quoteData.sections, quoteData.vatRate, quoteData.subtotal, quoteData.vatAmount, quoteData.total]);
 
-  // Save current quote to saved quotes list
-  const saveQuote = () => {
+  // Save current quote to database
+  const saveQuote = async () => {
     const name = prompt('שם להצעה:', quoteData.customer.name || `הצעה ${quoteData.quoteNumber}`);
     if (!name) return;
 
-    const newQuote: SavedQuote = {
-      id: Date.now().toString(),
-      name,
-      data: quoteData,
-      template: selectedTemplate,
-      savedAt: new Date().toLocaleString('he-IL')
-    };
-
-    const updated = [...savedQuotes, newQuote];
-    setSavedQuotes(updated);
-    localStorage.setItem(SAVED_QUOTES_KEY, JSON.stringify(updated));
-    
-    setSaveMessage('ההצעה נשמרה בהצלחה!');
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          data: quoteData,
+          template: selectedTemplate
+        })
+      });
+      
+      if (response.ok) {
+        setSaveMessage('ההצעה נשמרה בהצלחה!');
+        await fetchSavedQuotes();
+      } else {
+        setSaveMessage('שגיאה בשמירה');
+      }
+    } catch (e) {
+      console.error('Error saving quote:', e);
+      setSaveMessage('שגיאה בשמירה');
+    }
+    setIsSaving(false);
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  // Load a saved quote
-  const loadQuote = (quote: SavedQuote) => {
+  // Load a saved quote from database
+  const loadQuote = async (quote: SavedQuote) => {
     if (confirm(`לטעון את "${quote.name}"? הנתונים הנוכחיים יאבדו.`)) {
-      setQuoteData(quote.data);
-      setSelectedTemplate(quote.template);
-      setShowSavedQuotes(false);
+      try {
+        const response = await fetch(`/api/quotes/${quote.id}`);
+        if (response.ok) {
+          const fullQuote = await response.json();
+          setQuoteData(fullQuote.data);
+          setSelectedTemplate(fullQuote.template);
+          setShowSavedQuotes(false);
+        }
+      } catch (e) {
+        console.error('Error loading quote:', e);
+        alert('שגיאה בטעינת ההצעה');
+      }
     }
   };
 
-  // Delete a saved quote
-  const deleteQuote = (id: string) => {
+  // Delete a saved quote from database
+  const deleteQuote = async (id: number) => {
     if (confirm('למחוק הצעה זו?')) {
-      const updated = savedQuotes.filter(q => q.id !== id);
-      setSavedQuotes(updated);
-      localStorage.setItem(SAVED_QUOTES_KEY, JSON.stringify(updated));
+      try {
+        const response = await fetch(`/api/quotes/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          await fetchSavedQuotes();
+        }
+      } catch (e) {
+        console.error('Error deleting quote:', e);
+        alert('שגיאה במחיקה');
+      }
     }
   };
 
@@ -257,22 +296,23 @@ export default function QuotePage() {
                 </button>
               )}
               <button
-                onClick={() => setShowSavedQuotes(true)}
+                onClick={() => { fetchSavedQuotes(); setShowSavedQuotes(true); }}
                 className="px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
-                הצעות שמורות {savedQuotes.length > 0 && `(${savedQuotes.length})`}
+                הצעות שמורות
               </button>
               <button
                 onClick={saveQuote}
-                className="px-3 py-1.5 text-sm text-green-600 border border-green-300 rounded-lg hover:bg-green-50 transition-colors flex items-center gap-1.5"
+                disabled={isSaving}
+                className="px-3 py-1.5 text-sm text-green-600 border border-green-300 rounded-lg hover:bg-green-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                שמור הצעה
+                {isSaving ? 'שומר...' : 'שמור הצעה'}
               </button>
               <button
                 onClick={resetForm}
@@ -421,7 +461,15 @@ export default function QuotePage() {
               </button>
             </div>
 
-            {savedQuotes.length === 0 ? (
+            {isLoadingQuotes ? (
+              <div className="text-center py-12 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-lg">טוען הצעות...</p>
+              </div>
+            ) : savedQuotes.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -438,10 +486,10 @@ export default function QuotePage() {
                         <div className="flex-1">
                           <h4 className="font-bold text-gray-900">{quote.name}</h4>
                           <p className="text-sm text-gray-500 mt-1">
-                            {quote.data.quoteNumber} • {quote.data.customer.name || 'לקוח לא מוגדר'}
+                            {quote.quote_number} • {quote.customer_name || 'לקוח לא מוגדר'}
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
-                            נשמר: {quote.savedAt}
+                            נשמר: {new Date(quote.updated_at).toLocaleString('he-IL')}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -469,7 +517,7 @@ export default function QuotePage() {
 
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">
               <p className="text-xs text-gray-500">
-                ההצעות נשמרות מקומית בדפדפן. ניקוי היסטוריית הדפדפן עלול למחוק אותן.
+                ההצעות נשמרות בענן ומסונכרנות בין כל המכשירים.
               </p>
             </div>
           </div>
