@@ -43,11 +43,7 @@ export default function FileUpload({ onDataParsed }: FileUploadProps) {
       const viewport = page.getViewport({ scale: 1 });
       const pageHeight = viewport.height;
       
-      interface PdfTextItem {
-        str: string;
-        transform: number[];
-      }
-      const items = textContent.items.filter((item): item is PdfTextItem => 'str' in item && 'transform' in item);
+      const items = textContent.items.filter((item) => 'str' in item && 'transform' in item) as Array<{ str: string; transform: number[] }>;
       
       for (const item of items) {
         if (!item.str.trim()) continue;
