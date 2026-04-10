@@ -10,7 +10,41 @@ interface QuoteFormProps {
 
 export default function QuoteForm({ data, onChange }: QuoteFormProps) {
   const [draggedItem, setDraggedItem] = useState<{ sectionId: string; itemId: string } | null>(null);
-  
+  // rawInputs stores the live string while the user is typing, keyed by "<itemId>-<field>"
+  // This prevents React from overwriting mid-typing values (e.g. "100." → "100")
+  const [rawInputs, setRawInputs] = useState<Record<string, string>>({});
+
+  const getNumericValue = (key: string, stored: number): string => {
+    if (key in rawInputs) return rawInputs[key];
+    return stored > 0 ? String(stored) : '';
+  };
+
+  const handleNumericChange = (key: string, raw: string, onUpdate: (n: number) => void) => {
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    // Prevent multiple decimal points
+    const dotIndex = cleaned.indexOf('.');
+    const normalized = dotIndex >= 0
+      ? cleaned.slice(0, dotIndex + 1) + cleaned.slice(dotIndex + 1).replace(/\./g, '')
+      : cleaned;
+    setRawInputs(prev => ({ ...prev, [key]: normalized }));
+    if (normalized === '' || normalized.endsWith('.')) return; // partial — wait for more input
+    const num = parseFloat(normalized);
+    if (!isNaN(num)) onUpdate(num);
+  };
+
+  const handleNumericBlur = (key: string, stored: number, onUpdate: (n: number) => void) => {
+    if (key in rawInputs) {
+      const raw = rawInputs[key];
+      const num = parseFloat(raw);
+      onUpdate(raw === '' || isNaN(num) ? 0 : num);
+      setRawInputs(prev => { const n = { ...prev }; delete n[key]; return n; });
+    }
+    // If unitPrice was stored as 0 but rawInput didn't have it, still show 0 properly
+    if (!(key in rawInputs) && stored === 0) {
+      // nothing to do, stored is already 0
+    }
+  };
+
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const updateCustomer = (field: string, value: string) => {
@@ -643,21 +677,23 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                         />
                         <div className="flex items-center gap-2">
                           <input
-                            type="number"
-                            value={item.quantity || ''}
-                            onChange={(e) => updateItem(section.id, item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={getNumericValue(`${item.id}-qty`, item.quantity)}
+                            onChange={(e) => handleNumericChange(`${item.id}-qty`, e.target.value, (n) => updateItem(section.id, item.id, 'quantity', n))}
+                            onBlur={() => handleNumericBlur(`${item.id}-qty`, item.quantity, (n) => updateItem(section.id, item.id, 'quantity', n))}
                             className="w-20 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                             placeholder="כמות"
-                            min="0"
                           />
                           <span className="text-gray-400">×</span>
                           <input
-                            type="number"
-                            value={item.unitPrice || ''}
-                            onChange={(e) => updateItem(section.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={getNumericValue(`${item.id}-price`, item.unitPrice)}
+                            onChange={(e) => handleNumericChange(`${item.id}-price`, e.target.value, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
+                            onBlur={() => handleNumericBlur(`${item.id}-price`, item.unitPrice, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
                             className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                             placeholder="מחיר"
-                            min="0"
                           />
                           <span className="text-gray-400">=</span>
                           <span className="w-28 px-3 py-2 bg-gray-50 rounded-lg text-center font-medium">
@@ -683,21 +719,23 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                                 placeholder="תיאור תת-סעיף"
                               />
                               <input
-                                type="number"
-                                value={subItem.quantity || ''}
-                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                type="text"
+                                inputMode="decimal"
+                                value={getNumericValue(`${subItem.id}-qty`, subItem.quantity)}
+                                onChange={(e) => handleNumericChange(`${subItem.id}-qty`, e.target.value, (n) => updateSubItem(section.id, item.id, subItem.id, 'quantity', n))}
+                                onBlur={() => handleNumericBlur(`${subItem.id}-qty`, subItem.quantity, (n) => updateSubItem(section.id, item.id, subItem.id, 'quantity', n))}
                                 className="w-16 px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-purple-500 text-sm text-center"
                                 placeholder="כמות"
-                                min="0"
                               />
                               <span className="text-gray-400 text-sm">×</span>
                               <input
-                                type="number"
-                                value={subItem.unitPrice || ''}
-                                onChange={(e) => updateSubItem(section.id, item.id, subItem.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                type="text"
+                                inputMode="decimal"
+                                value={getNumericValue(`${subItem.id}-price`, subItem.unitPrice)}
+                                onChange={(e) => handleNumericChange(`${subItem.id}-price`, e.target.value, (n) => updateSubItem(section.id, item.id, subItem.id, 'unitPrice', n))}
+                                onBlur={() => handleNumericBlur(`${subItem.id}-price`, subItem.unitPrice, (n) => updateSubItem(section.id, item.id, subItem.id, 'unitPrice', n))}
                                 className="w-20 px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-purple-500 text-sm text-center"
                                 placeholder="מחיר"
-                                min="0"
                               />
                               <span className="text-gray-400 text-sm">=</span>
                               <span className="w-20 text-sm font-medium text-purple-700">
