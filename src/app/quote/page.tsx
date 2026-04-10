@@ -115,16 +115,20 @@ export default function QuotePage() {
   }, [quoteData, selectedTemplate, isLoaded]);
 
   useEffect(() => {
-    const subtotal = quoteData.sections.reduce((sum, section) => 
-      sum + section.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0), 0
+    const subtotal = quoteData.sections.reduce((sum, section) =>
+      sum + section.items.reduce((itemSum, item) => {
+        if (item.isComplex && item.subItems.length > 0) {
+          return itemSum + item.subItems.reduce((s, sub) => s + sub.quantity * sub.unitPrice, 0);
+        }
+        return itemSum + item.quantity * item.unitPrice;
+      }, 0), 0
     );
     const vatAmount = subtotal * (quoteData.vatRate / 100);
     const total = subtotal + vatAmount;
-    
-    if (quoteData.subtotal !== subtotal || quoteData.vatAmount !== vatAmount || quoteData.total !== total) {
-      setQuoteData(prev => ({ ...prev, subtotal, vatAmount, total }));
-    }
-  }, [quoteData.sections, quoteData.vatRate, quoteData.subtotal, quoteData.vatAmount, quoteData.total]);
+
+    setQuoteData(prev => ({ ...prev, subtotal, vatAmount, total }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteData.sections, quoteData.vatRate]);
 
   // Save current quote to database
   const saveQuote = async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { QuoteData, TemplateStyle, templates, defaultDisplaySettings, defaultSectionDisplayOptions } from '@/types/quote';
+import { QuoteData, QuoteItem, TemplateStyle, templates, defaultDisplaySettings, defaultSectionDisplayOptions } from '@/types/quote';
 import { forwardRef } from 'react';
 
 interface QuotePreviewProps {
@@ -113,10 +113,21 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
     return date.toLocaleDateString('he-IL');
   };
 
+  const getItemTotal = (item: QuoteItem): number => {
+    if (item.isComplex && item.subItems.length > 0) {
+      return item.subItems.reduce((sum, sub) => sum + sub.quantity * sub.unitPrice, 0);
+    }
+    return item.quantity * item.unitPrice;
+  };
+
+  const formatAmount = (amount: number): string => {
+    return parseFloat(amount.toFixed(2)).toLocaleString();
+  };
+
   const calculateSectionTotal = (sectionIndex: number) => {
     const section = data.sections[sectionIndex];
     if (!section) return 0;
-    return section.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    return section.items.reduce((sum, item) => sum + getItemTotal(item), 0);
   };
 
   const calculateTotals = (sectionIndex: number) => {
@@ -226,9 +237,9 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                 
                 {/* Totals */}
                 <div className="mt-3 flex gap-4">
-                  <span style={{ color: colors.muted }}>סה״כ: <strong>₪{totals.subtotal.toLocaleString()}</strong></span>
-                  <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong>₪{Math.round(totals.vat).toLocaleString()}</strong></span>
-                  <span className="font-bold" style={{ color: colors.primary }}>סה״כ כולל מע״מ: ₪{Math.round(totals.total).toLocaleString()}</span>
+                  <span style={{ color: colors.muted }}>סה״כ: <strong>₪{formatAmount(totals.subtotal)}</strong></span>
+                  <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong>₪{formatAmount(totals.vat)}</strong></span>
+                  <span className="font-bold" style={{ color: colors.primary }}>סה״כ כולל מע״מ: ₪{formatAmount(totals.total)}</span>
                 </div>
 
                 {/* Notes & Terms - Conditional based on section options */}
@@ -338,9 +349,9 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                 
                 <div className={rowPadding} style={{ color: colors.muted }}>
                   <div className="flex gap-6">
-                    <span>סה״כ: <strong style={{ color: colors.text }}>₪{totals.subtotal.toLocaleString()}</strong></span>
-                    <span>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{Math.round(totals.vat).toLocaleString()}</strong></span>
-                    <span className="text-base font-bold" style={{ color: colors.text }}>סה״כ כולל מע״מ: ₪{Math.round(totals.total).toLocaleString()}</span>
+                    <span>סה״כ: <strong style={{ color: colors.text }}>₪{formatAmount(totals.subtotal)}</strong></span>
+                    <span>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{formatAmount(totals.vat)}</strong></span>
+                    <span className="text-base font-bold" style={{ color: colors.text }}>סה״כ כולל מע״מ: ₪{formatAmount(totals.total)}</span>
                   </div>
                 </div>
                 
@@ -459,9 +470,9 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                   {/* Totals */}
                   <div className="mt-3">
                     <div className="flex gap-6">
-                      <span style={{ color: colors.muted }}>סה״כ: <strong style={{ color: colors.text }}>₪{totals.subtotal.toLocaleString()}</strong></span>
-                      <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{Math.round(totals.vat).toLocaleString()}</strong></span>
-                      <span className="font-bold" style={{ color: colors.primary }}>סה״כ כולל מע״מ: ₪{Math.round(totals.total).toLocaleString()}</span>
+                      <span style={{ color: colors.muted }}>סה״כ: <strong style={{ color: colors.text }}>₪{formatAmount(totals.subtotal)}</strong></span>
+                      <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{formatAmount(totals.vat)}</strong></span>
+                      <span className="font-bold" style={{ color: colors.primary }}>סה״כ כולל מע״מ: ₪{formatAmount(totals.total)}</span>
                     </div>
                   </div>
                   
@@ -645,10 +656,10 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
 
               {/* Totals */}
               <div className="mt-2 flex gap-3 items-center">
-                <span style={{ color: colors.muted }}>סה״כ: <strong style={{ color: colors.text }}>₪{totals.subtotal.toLocaleString()}</strong></span>
-                <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{Math.round(totals.vat).toLocaleString()}</strong></span>
+                <span style={{ color: colors.muted }}>סה״כ: <strong style={{ color: colors.text }}>₪{formatAmount(totals.subtotal)}</strong></span>
+                <span style={{ color: colors.muted }}>מע״מ {data.vatRate}%: <strong style={{ color: colors.text }}>₪{formatAmount(totals.vat)}</strong></span>
                 <span className={`${rowPadding} rounded text-white font-bold`} style={{ backgroundColor: colors.primary }}>
-                  סה״כ כולל מע״מ: ₪{Math.round(totals.total).toLocaleString()}
+                  סה״כ כולל מע״מ: ₪{formatAmount(totals.total)}
                 </span>
               </div>
               

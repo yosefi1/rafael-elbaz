@@ -177,16 +177,19 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
           ...s,
           items: s.items.map(item => {
             if (item.id !== itemId) return item;
+            const updatedSubItems = item.subItems.map(sub => {
+              if (sub.id !== subItemId) return sub;
+              const updated = { ...sub, [field]: value };
+              if (field === 'quantity' || field === 'unitPrice') {
+                updated.total = Number(updated.quantity) * Number(updated.unitPrice);
+              }
+              return updated;
+            });
+            const parentTotal = updatedSubItems.reduce((sum, sub) => sum + sub.quantity * sub.unitPrice, 0);
             return {
               ...item,
-              subItems: item.subItems.map(sub => {
-                if (sub.id !== subItemId) return sub;
-                const updated = { ...sub, [field]: value };
-                if (field === 'quantity' || field === 'unitPrice') {
-                  updated.total = Number(updated.quantity) * Number(updated.unitPrice);
-                }
-                return updated;
-              })
+              subItems: updatedSubItems,
+              total: parentTotal
             };
           })
         };
@@ -658,7 +661,10 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                           />
                           <span className="text-gray-400">=</span>
                           <span className="w-28 px-3 py-2 bg-gray-50 rounded-lg text-center font-medium">
-                            ₪{(item.quantity * item.unitPrice).toLocaleString()}
+                            ₪{(item.isComplex && item.subItems.length > 0
+                              ? item.subItems.reduce((sum, sub) => sum + sub.quantity * sub.unitPrice, 0)
+                              : item.quantity * item.unitPrice
+                            ).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -795,9 +801,15 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
 
             {/* Section Totals - Left Side */}
             {section.items.length > 0 && (() => {
-              const subtotal = section.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+              const subtotal = section.items.reduce((sum, item) => {
+                if (item.isComplex && item.subItems.length > 0) {
+                  return sum + item.subItems.reduce((s, sub) => s + sub.quantity * sub.unitPrice, 0);
+                }
+                return sum + item.quantity * item.unitPrice;
+              }, 0);
               const vat = subtotal * (data.vatRate / 100);
               const total = subtotal + vat;
+              const fmt = (n: number) => parseFloat(n.toFixed(2)).toLocaleString();
               const sectionIndex = data.sections.findIndex(s => s.id === section.id);
               const isLastSection = sectionIndex === data.sections.length - 1;
               return (
@@ -812,10 +824,10 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                   )}
                   {isLastSection && <span></span>}
                   <div className="flex gap-6 items-center">
-                    <span className="text-gray-500">סה״כ: <strong className="text-gray-800">₪{subtotal.toLocaleString()}</strong></span>
-                    <span className="text-gray-500">מע״מ {data.vatRate}%: <strong className="text-gray-800">₪{Math.round(vat).toLocaleString()}</strong></span>
+                    <span className="text-gray-500">סה״כ: <strong className="text-gray-800">₪{fmt(subtotal)}</strong></span>
+                    <span className="text-gray-500">מע״מ {data.vatRate}%: <strong className="text-gray-800">₪{fmt(vat)}</strong></span>
                     <span className="py-2 px-4 bg-blue-600 text-white rounded-lg font-bold">
-                      סה״כ כולל מע״מ: ₪{Math.round(total).toLocaleString()}
+                      סה״כ כולל מע״מ: ₪{fmt(total)}
                     </span>
                   </div>
                 </div>
