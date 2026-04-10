@@ -212,26 +212,29 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                     </tr>
                   </thead>
                   <tbody>
-                    {section.items.map((item, itemIndex) => (
-                      <>
-                        <tr key={item.id} style={{ backgroundColor: itemIndex % 2 === 0 ? '#ffffff' : colors.tableBg }}>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{itemIndex + 1}</td>
-                          <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}>{item.description}</td>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border }}>{item.quantity}</td>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border }}>₪{item.unitPrice.toLocaleString()}</td>
-                          <td className={`${rowPadding} border-b text-center font-medium`} style={{ borderColor: colors.border }}>₪{(item.quantity * item.unitPrice).toLocaleString()}</td>
-                        </tr>
-                        {item.subItems.map((sub) => (
-                          <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                            <td className="px-2 py-1 border-b" style={{ borderColor: colors.border }}></td>
-                            <td className="px-4 py-1 border-b" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
-                            <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
-                            <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
-                            <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                    {section.items.map((item, itemIndex) => {
+                      const isGroup = item.isComplex && item.subItems.length > 0;
+                      return (
+                        <>
+                          <tr key={item.id} style={{ backgroundColor: isGroup ? colors.tableBg : (itemIndex % 2 === 0 ? '#ffffff' : colors.tableBg) }}>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{itemIndex + 1}</td>
+                            <td className={`${rowPadding} border-b font-medium`} style={{ borderColor: colors.border }}>{item.description}</td>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : item.quantity}</td>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : `₪${item.unitPrice.toLocaleString()}`}</td>
+                            <td className={`${rowPadding} border-b text-center font-medium`} style={{ borderColor: colors.border }}>₪{getItemTotal(item).toLocaleString()}</td>
                           </tr>
-                        ))}
-                      </>
-                    ))}
+                          {item.subItems.map((sub) => (
+                            <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: colors.border }}></td>
+                              <td className="px-4 py-1 border-b" style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                              <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                              <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                              <td className="px-2 py-1 border-b text-center" style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
                 
@@ -327,25 +330,28 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
               <div key={section.id} className={settings.headerSize === 'compact' ? 'mb-6' : 'mb-10'} data-section-id={section.id}>
                 <h3 className={`font-medium ${settings.headerSize === 'compact' ? 'mb-2 pb-1' : 'mb-4 pb-2'} border-b`} style={{ borderColor: colors.border }}>{section.title}</h3>
                 
-                {section.items.map((item, itemIndex) => (
-                  <div key={item.id}>
-                    <div className={`flex justify-between ${rowPadding} border-b`} style={{ borderColor: colors.border }}>
-                      <div className="flex-1">
-                        <span className="text-gray-400 ml-3">{itemIndex + 1}.</span>
-                        {item.description}
+                {section.items.map((item, itemIndex) => {
+                  const isGroup = item.isComplex && item.subItems.length > 0;
+                  return (
+                    <div key={item.id}>
+                      <div className={`flex justify-between ${rowPadding} border-b`} style={{ borderColor: colors.border }}>
+                        <div className="flex-1">
+                          <span className="text-gray-400 ml-3">{itemIndex + 1}.</span>
+                          <span className={isGroup ? 'font-medium' : ''}>{item.description}</span>
+                        </div>
+                        <div className="text-left w-32 font-medium">₪{getItemTotal(item).toLocaleString()}</div>
                       </div>
-                      <div className="text-left w-32 font-medium">₪{(item.quantity * item.unitPrice).toLocaleString()}</div>
+                      {item.subItems.map((sub) => (
+                        <div key={sub.id} className={`flex items-center ${rowPadding} pr-8 border-b`} style={{ borderColor: colors.border, color: colors.muted }}>
+                          <div className="flex-1">• {sub.description}</div>
+                          <div className="w-16 text-center">{sub.quantity}</div>
+                          <div className="w-24 text-center">₪{sub.unitPrice.toLocaleString()}</div>
+                          <div className="w-32 text-left">₪{(sub.quantity * sub.unitPrice).toLocaleString()}</div>
+                        </div>
+                      ))}
                     </div>
-                    {item.subItems.map((sub) => (
-                      <div key={sub.id} className={`flex items-center ${rowPadding} pr-8 border-b`} style={{ borderColor: colors.border, color: colors.muted }}>
-                        <div className="flex-1">• {sub.description}</div>
-                        <div className="w-16 text-center">{sub.quantity}</div>
-                        <div className="w-24 text-center">₪{sub.unitPrice.toLocaleString()}</div>
-                        <div className="w-32 text-left">₪{(sub.quantity * sub.unitPrice).toLocaleString()}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                  );
+                })}
                 
                 <div className={rowPadding} style={{ color: colors.muted }}>
                   <div className="flex gap-6">
@@ -444,26 +450,29 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                       </tr>
                     </thead>
                     <tbody>
-                      {section.items.map((item, itemIndex) => (
-                        <>
-                          <tr key={item.id}>
-                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border }}>{itemIndex + 1}</td>
-                            <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}>{item.description}</td>
-                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border }}>{item.quantity}</td>
-                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border }}>₪{item.unitPrice.toLocaleString()}</td>
-                            <td className={`${rowPadding} border-b text-left font-medium`} style={{ borderColor: colors.border }}>₪{(item.quantity * item.unitPrice).toLocaleString()}</td>
-                          </tr>
-                          {item.subItems.map((sub) => (
-                            <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                              <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}></td>
-                              <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
-                              <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
-                              <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
-                              <td className={`${rowPadding} border-b text-left`} style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                      {section.items.map((item, itemIndex) => {
+                        const isGroup = item.isComplex && item.subItems.length > 0;
+                        return (
+                          <>
+                            <tr key={item.id} style={{ backgroundColor: isGroup ? colors.tableBg : undefined }}>
+                              <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{itemIndex + 1}</td>
+                              <td className={`${rowPadding} border-b font-medium`} style={{ borderColor: colors.border }}>{item.description}</td>
+                              <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : item.quantity}</td>
+                              <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : `₪${item.unitPrice.toLocaleString()}`}</td>
+                              <td className={`${rowPadding} border-b text-left font-medium`} style={{ borderColor: colors.border }}>₪{getItemTotal(item).toLocaleString()}</td>
                             </tr>
-                          ))}
-                        </>
-                      ))}
+                            {item.subItems.map((sub) => (
+                              <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
+                                <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}></td>
+                                <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                                <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                                <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                                <td className={`${rowPadding} border-b text-left`} style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
                     </tbody>
                   </table>
                   
@@ -631,26 +640,29 @@ const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ data, temp
                   </tr>
                 </thead>
                 <tbody>
-                  {section.items.map((item, itemIndex) => (
-                    <>
-                      <tr key={item.id} style={{ backgroundColor: itemIndex % 2 === 0 ? '#ffffff' : colors.tableBg }}>
-                        <td className={`${rowPadding} text-center border-b`} style={{ color: colors.muted, borderColor: colors.border }}>{itemIndex + 1}</td>
-                        <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}>{item.description || '---'}</td>
-                        <td className={`${rowPadding} text-center border-b`} style={{ borderColor: colors.border }}>{item.quantity}</td>
-                        <td className={`${rowPadding} text-center border-b`} style={{ borderColor: colors.border }}>₪{item.unitPrice.toLocaleString()}</td>
-                        <td className={`${rowPadding} text-center font-medium border-b`} style={{ borderColor: colors.border }}>₪{(item.quantity * item.unitPrice).toLocaleString()}</td>
-                      </tr>
-                      {item.subItems.map((sub) => (
-                        <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
-                          <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}></td>
-                          <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
-                          <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                  {section.items.map((item, itemIndex) => {
+                    const isGroup = item.isComplex && item.subItems.length > 0;
+                    return (
+                      <>
+                        <tr key={item.id} style={{ backgroundColor: isGroup ? colors.tableBg : (itemIndex % 2 === 0 ? '#ffffff' : colors.tableBg) }}>
+                          <td className={`${rowPadding} text-center border-b`} style={{ color: colors.muted, borderColor: colors.border }}>{itemIndex + 1}</td>
+                          <td className={`${rowPadding} border-b font-medium`} style={{ borderColor: colors.border }}>{item.description || '---'}</td>
+                          <td className={`${rowPadding} text-center border-b`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : item.quantity}</td>
+                          <td className={`${rowPadding} text-center border-b`} style={{ borderColor: colors.border, color: colors.muted }}>{isGroup ? '' : `₪${item.unitPrice.toLocaleString()}`}</td>
+                          <td className={`${rowPadding} text-center font-medium border-b`} style={{ borderColor: colors.border }}>₪{getItemTotal(item).toLocaleString()}</td>
                         </tr>
-                      ))}
-                    </>
-                  ))}
+                        {item.subItems.map((sub) => (
+                          <tr key={sub.id} style={{ backgroundColor: colors.tableBg }}>
+                            <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border }}></td>
+                            <td className={`${rowPadding} border-b`} style={{ borderColor: colors.border, color: colors.muted }}>• {sub.description}</td>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>{sub.quantity}</td>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{sub.unitPrice.toLocaleString()}</td>
+                            <td className={`${rowPadding} border-b text-center`} style={{ borderColor: colors.border, color: colors.muted }}>₪{(sub.quantity * sub.unitPrice).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
 
