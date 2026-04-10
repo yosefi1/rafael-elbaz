@@ -673,36 +673,44 @@ export default function QuoteForm({ data, onChange }: QuoteFormProps) {
                           value={item.description}
                           onChange={(e) => updateItem(section.id, item.id, 'description', e.target.value)}
                           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="תיאור הפריט"
+                          placeholder={item.isComplex && item.subItems.length > 0 ? 'כותרת קבוצה' : 'תיאור הפריט'}
                         />
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={getNumericValue(`${item.id}-qty`, item.quantity)}
-                            onChange={(e) => handleNumericChange(`${item.id}-qty`, e.target.value, (n) => updateItem(section.id, item.id, 'quantity', n))}
-                            onBlur={() => handleNumericBlur(`${item.id}-qty`, item.quantity, (n) => updateItem(section.id, item.id, 'quantity', n))}
-                            className="w-20 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                            placeholder="כמות"
-                          />
-                          <span className="text-gray-400">×</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={getNumericValue(`${item.id}-price`, item.unitPrice)}
-                            onChange={(e) => handleNumericChange(`${item.id}-price`, e.target.value, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
-                            onBlur={() => handleNumericBlur(`${item.id}-price`, item.unitPrice, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
-                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                            placeholder="מחיר"
-                          />
-                          <span className="text-gray-400">=</span>
-                          <span className="w-28 px-3 py-2 bg-gray-50 rounded-lg text-center font-medium">
-                            ₪{(item.isComplex && item.subItems.length > 0
-                              ? item.subItems.reduce((sum, sub) => sum + sub.quantity * sub.unitPrice, 0)
-                              : item.quantity * item.unitPrice
-                            ).toLocaleString()}
-                          </span>
-                        </div>
+                        {item.isComplex && item.subItems.length > 0 ? (
+                          /* Complex item: show only the sub-items total */
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 text-sm">סה״כ:</span>
+                            <span className="w-28 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-center font-medium text-purple-800">
+                              ₪{item.subItems.reduce((sum, sub) => sum + sub.quantity * sub.unitPrice, 0).toLocaleString()}
+                            </span>
+                          </div>
+                        ) : (
+                          /* Simple item: qty × price = total */
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={getNumericValue(`${item.id}-qty`, item.quantity)}
+                              onChange={(e) => handleNumericChange(`${item.id}-qty`, e.target.value, (n) => updateItem(section.id, item.id, 'quantity', n))}
+                              onBlur={() => handleNumericBlur(`${item.id}-qty`, item.quantity, (n) => updateItem(section.id, item.id, 'quantity', n))}
+                              className="w-20 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                              placeholder="כמות"
+                            />
+                            <span className="text-gray-400">×</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={getNumericValue(`${item.id}-price`, item.unitPrice)}
+                              onChange={(e) => handleNumericChange(`${item.id}-price`, e.target.value, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
+                              onBlur={() => handleNumericBlur(`${item.id}-price`, item.unitPrice, (n) => updateItem(section.id, item.id, 'unitPrice', n))}
+                              className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                              placeholder="מחיר"
+                            />
+                            <span className="text-gray-400">=</span>
+                            <span className="w-28 px-3 py-2 bg-gray-50 rounded-lg text-center font-medium">
+                              ₪{(item.quantity * item.unitPrice).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Sub-items */}
